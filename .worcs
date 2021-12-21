@@ -5,4 +5,4 @@ data:
   dat.csv:
     codebook: codebook_dat.Rmd
 checksums:
-  dat.csv: 951a93dc1c85be866215b00ccedb74ab
+  dat.csv: a64d77048cea3e1b4649ec9ae3727d78

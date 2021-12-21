@@ -1,0 +1,59 @@
+administration,i.p.,i.p.
+administration,p.o.,p.o.
+drug,AM404,AM404
+drug,Cannabidiol,Cannabidiol
+drug,PF3845,PF3845
+drug,URB597,URB597
+drug_class,AEA hydrolysis inhibitor,AEA_in
+drug_class,Reuptake inhibitor,reup_in
+drug_class,Reuptake/hydrolysis inhibitor,rehy_in
+unit,mg,mg
+unit,mg/kg,mg/kg
+frequency,MD,MD
+frequency,SD,SD
+timing,acute,acute
+timing,delay,delay
+anxiety_test,Contextual fear conditioning,contextual
+anxiety_test,Cued fear conditioning,cued
+anxiety_test,Simulated public speaking test,speaking
+anxiety_test,SPECT imaging (subjective assessments taken beforehand),SPECT
+anxiety_test,Viewing fearful faces with different intensity of fearfulness,faces
+outcome_type,Extinction consolidation,ex_cons
+outcome_type,Extinction recall,ex_recall
+outcome_type,Extinction retention,ex_ret
+outcome_type,Fear memory or extinction retention,mem_ret
+outcome_type,Fear memory reconsolidation,mem_recon
+outcome_type,Fear memory reconsolidation or within-session extinction,mem_recon_ex
+outcome_type,Within-session fear extinction,within_ex
+outcome_type,Within-session fear extinction or extinction consolidation,within_ex_con
+outcome_type,Within-session fear extinction or extinction retention,within_ex_ret
+test_type,Conditioned,Conditioned
+test_type,Experimental,Experimental
+test_type,Unconditioned,Unconditioned
+species_full,Cricetidae,Cricetidae
+species_full,human,human
+species_full,mice,mice
+species_full,rats,rats
+disease_full,No,No
+disease_full,none,none
+disease_full,Yes,Yes
+sex,Female,Female
+sex,male,Male
+sex,Male,Male
+sex,Male and female,Both
+sex,NI,NI
+Sample,AM404conditioned,AM404conditioned
+Sample,AM404unconditioned,AM404unconditioned
+Sample,CBDanimalconditioned,CBDanimalconditioned
+Sample,CBDanimalunconditioned,CBDanimalunconditioned
+Sample,CBDhumanexperimental,CBDhumanexperimental
+Sample,PF3485unconditioned,PF3485unconditioned
+Sample,URB597conditioned,URB597conditioned
+Sample,URB597unconditioned,URB597unconditioned
+ax_test_cat,AA,AA
+ax_test_cat,ASR,ASR
+ax_test_cat,defense,defense
+ax_test_cat,Doxapram,Doxapram
+ax_test_cat,NSF,NSF
+ax_test_cat,RCLB,RCLB
+ax_test_cat,SIT,SIT

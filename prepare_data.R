@@ -6,18 +6,27 @@
 library(worcs)
 library(readxl)
 library(tidySEM)
-dat <- readxl::excel_sheets("SR_SSRI_FearLearning_ForestPlot_data_20211018_Caspar.xlsx")
-dat <- lapply(dat[-1], function(x){
-  tmp <- as.data.frame(readxl::read_xlsx(path = "SR_SSRI_FearLearning_ForestPlot_data_20211018_Caspar.xlsx", sheet = x))
-  tmp[["Remarks"]] <- NULL
+f <- list.files(pattern = "^Data_.*.xlsx$")
+rename <- read.csv("rename.csv")
+dat <- lapply(f, function(x){
+  tmp <- as.data.frame(readxl::read_xlsx(path = x))
   names(tmp) <- tolower(names(tmp))
-  numers <- tolower(c("Mean experimental group", "SD experimental group",
-              "Number of animals in intervention group", "Mean control group",
-              "SD control group", "Number of animals in control group"))
-  cats <- names(tmp)[!names(tmp) %in% numers]
-  tmp[numers] <- lapply(tmp[numers], as.numeric)
-  tmp$Process = x
+  #if("anxiety test categories" %in% names(tmp)) browser()
+  # removedups <- table(gsub(".short$", "", names(tmp)))
+  # removedups <- names(removedups)[removedups == 2]
+  # tmp[removedups] <- NULL
+  tmp[grep("comments", names(tmp))] <- NULL
+  names(tmp) <- rename[[2]][match(names(tmp), rename[[1]])]
+  tmp$id_sample <- as.integer(factor(tmp$paper))
+  cats <- names(tmp)[!sapply(tmp, inherits, "numeric")]
+  tmp[cats] <- lapply(tmp[cats], factor)
+  tmp$Sample = gsub("Data_meta_analysis_SRMAextangst_(.+?)_.*$", "\\1", x)
   tmp
 })
 dat <- tidySEM:::bind_list(dat)
+dat$year <- as.character(dat$year)
+dat$dose[dat$dose == "7.0000000000000007E-2"] <- ".07"
+dat$dose[dat$dose == "0.1-0.15"] <- ".125"
+dat$dose <- as.numeric(dat$dose)
+dat$year <- as.integer(gsub("[a-zA-Z]", "", dat$year))
 open_data(dat)

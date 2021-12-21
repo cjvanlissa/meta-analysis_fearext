@@ -1,5 +1,5 @@
 ```{r tabbrma{{i}}, results = 'asis'}
-p <- processes[{{i}}]
+p <- samples[{{i}}]
     tb <- modres[[{{i}}]]$brma
     tb$format <- as.integer(tb$p == "*")
     formatStyle(

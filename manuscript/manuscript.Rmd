@@ -1,5 +1,6 @@
 ---
-title: "Untitled"
+title: "Meta-Analysis Fear Extinction"
+author: "Caspar J. Van Lissa, for Caroline Kwee, Nadia Leen, Lucianne Groenink & Joke Baas"
 output: bookdown::html_document2
 date: '`r format(Sys.time(), "%d %B, %Y")`'
 bibliography: references.bib
@@ -27,53 +28,57 @@ library(pema)
 # Then, uncomment the line below to load the original or synthetic data
 # (whichever is available), to allow anyone to reproduce your code:
 load_data()
-dat$Process <- ordered(dat$Process, levels = unique(dat$Process))
-processes <- levels(dat$Process)
-totaln <- dat[!duplicated(dat$article.code), c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group", "Process")]
-totaln <- sapply(processes, function(p){ sum(totaln[totaln$Process == p, -3], na.rm = TRUE)})
+dat$paper <- as.character(dat$paper)
+dat$author <- as.character(dat$author)
+dat$dose_unit <- as.character(dat$dose_unit)
+dat$strain <- as.character(dat$strain)
+dat$id_sample <- as.integer(factor(do.call("paste", dat[c("paper", "id_sample")])))
+cat <- sapply(dat, inherits, "factor")
 
-dat <- escalc(measure = "SMD",
-         n1i = dat$number.of.animals.in.control.group,
-         n2i = dat$number.of.animals.in.intervention.group,
-         m1i = dat$mean.control.group,
-         m2i = dat$mean.experimental.group,
-         sd1i = dat$sd.control.group,
-         sd2i = dat$sd.experimental.group,
-         data = dat)
-# dat[c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group", "mean.control.group", "mean.experimental.group", "sd.control.group", "sd.experimental.group")] <- NULL
-
-# Rename
-rnm <- read.csv("../rename.csv", stringsAsFactors = F, encoding = "UTF-8")
-names(rnm) <- c("orig", "Rename")
-mods <- c("type.of.ssri", "frequency", "disease.induction", "species", 
-"type.of.test")
-for(v in mods){
-  these <- rnm[grepl(v, rnm$orig),]
-  orig_levs <- gsub(v, "", these$orig)
-  nulev <- gsub("^.+?\\.", "", these$Rename)
-  levels(dat[[v]]) <- nulev[match(orig_levs, levels(dat[[v]]))]
+# for(v in names(dat)[cat]){
+#   out <- data.frame(Variable = v, Levs = levels(dat[[v]]))
+#   write.table(out, "rename_cats.csv", append = TRUE, row.names = F, col.names = F, sep = ",")
+# }
+recat <- read.csv("rename_cats.csv", stringsAsFactors = F, header = F)
+for(v in names(dat)[cat]){
+  thelevs <- recat[recat[[1]] == v, ]
+  levels(dat[[v]]) <- thelevs$V3[match(levels(dat[[v]]), thelevs$V2)]
 }
 
-names(dat)[match(mods, names(dat))] <- c("ssri", "freq", "disease", "species", "test")
+dat$Sample <- ordered(dat$Sample, levels = c("CBDhumanexperimental", "CBDanimalconditioned", 
+"CBDanimalunconditioned", "AM404conditioned", "AM404unconditioned", "URB597conditioned", "URB597unconditioned", "PF3485unconditioned")
+)
+samples <- levels(dat$Sample)
+
+dat <- escalc(measure = "SMD",
+         n1i = dat$ncon,
+         n2i = dat$ntreat,
+         m1i = dat$mcon,
+         m2i = dat$mtreat,
+         sd1i = dat$sdcon,
+         sd2i = dat$sdtreat,
+         data = dat)
+
 dat <- dat[!is.na(dat$yi), ]
 zscores <- scale(dat[["yi"]])
-maxz <- max(zscores)
-dat <- dat[-which.max(zscores), ]
-dat$id_study <- as.integer(factor(trimws(gsub("\\(\\d+\\)$", "", as.character(dat$article.code)))))
-dat$id_es <- 1:nrow(dat)
+maxz <- max(abs(zscores))
+#dat <- dat[-which.max(zscores), ]
+mods_cont <- c("dose", "hed")
+dat[mods_cont] <- lapply(dat[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+dat[paste0(mods_cont, "2")] <- lapply(dat[mods_cont], function(x)x^2)
 saveRDS(dat, "dat.RData")
 ```
 
 ```{r}
 dat <- readRDS("dat.RData")
-processes <- levels(dat$Process)
-mods <- c("ssri", "freq", "disease", "species", "test")
+samples <- levels(dat$Sample)
+mods <- c("year", "dose",  "dose2", "hed", "hed2", "sex", "administration", "timing", "disease", "anxiety_test","species", "outcome_type", "frequency")
 ```
 
 
 <!--   Information regarding this data file for the SR fear learning & SSRIs -->
 
-<!-- This data file is organised by fear learning process. This means that every fear learning process has its own Excel sheet. -->
+<!-- This data file is organised by fear learning Sample. This means that every fear learning Sample has its own Excel sheet. -->
 
 <!-- Within these sheets you find the same layout. The different columns are explained below: -->
 
@@ -89,21 +94,21 @@ mods <- c("ssri", "freq", "disease", "species", "test")
 
 
 <!-- Analyses we want to perform: -->
-<!-- 2. Subgroup analyses of the five factors (SSRI, frequency, disease induction, species, type of test) per fear learning process -->
+<!-- 2. Subgroup analyses of the five factors (SSRI, frequency, disease induction, species, type of test) per fear learning Sample -->
 <!-- 3. Check for multi collinearity -->
 
 ```{r threelev, echo=FALSE, warning=FALSE, message=FALSE, results="hide", eval = run_everything}
-mlm <- lapply(processes, function(p){
-  df <- dat[dat$Process == p, ]
+mlm <- lapply(samples, function(p){
+  df <- dat[dat$Sample == p, ]
   #Conduct meta-analyses
-  #model.mods <- rma.mv(yi, vi, random = list(~ 1 | id_study, ~ 1 | id_es), data=df) 
-  model.full <- rma.mv(yi, vi, random = list(~ 1 | id_study, ~ 1 | id_es), data=df) 
-  model.within_null <- rma.mv(yi, vi, random = list(~ 1 | id_study, ~ 1 | id_es), sigma2=c(NA,0), data = df) 
-  model.between_null <- rma.mv(yi, vi, random = list(~ 1 | id_study, ~ 1 | id_es), sigma2=c(0,NA), data = df) 
-model.both_null <- rma.mv(yi, vi, random = list(~ 1 | id_study, ~ 1 | id_es), sigma2=c(0,0), data = df) 
-#model.mods <- rma.mv(yi, vi, mods = as.formula(paste0("~ ", paste(moderators, collapse = " + "))), random = list(~ 1 | id_study, ~ 1 | id_es), data = df) 
+  #model.mods <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), data=df) 
+  model.full <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), data=df) 
+  model.within_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(NA,0), data = df) 
+  model.between_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(0,NA), data = df) 
+model.both_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(0,0), data = df) 
+#model.mods <- rma.mv(yi, vi, mods = as.formula(paste0("~ ", paste(moderators, collapse = " + "))), random = list(~ 1 | id_sample, ~ 1 | id_es), data = df) 
 #ggplot(, aes(x=d, colour=interventioncode))+geom_density()
-#anova(model.full,rma.mv(yi, vi, mods = ~interventioncode, random = list(~ 1 | id_study, ~ 1 | id_es), data = df) ) 
+#anova(model.full,rma.mv(yi, vi, mods = ~interventioncode, random = list(~ 1 | id_sample, ~ 1 | id_es), data = df) ) 
 aov_within <- anova(model.full,model.within_null) 
 aov_between <- anova(model.full,model.between_null) 
 aov_bothnull <- anova(model.full,model.both_null) 
@@ -125,12 +130,12 @@ confints <- confint(model.full)
 xname <- paste0("Hedges' g (", p, ")")
 tmp <- df[order(df$vi, decreasing = TRUE), ]
 df_es <- data.frame(
-    Study = ordered(tmp$article.code, levels = unique(tmp$article.code)),
+    Study = ordered(tmp$paper, levels = unique(tmp$paper)),
     y = 1:nrow(tmp),
     es = tmp$yi,
     lb = tmp$yi - 1.96*sqrt(tmp$vi),
     ub = tmp$yi + 1.96*sqrt(tmp$vi),
-    Process = p)
+    Sample = p)
 
 dfoverall <- data.frame(x = c(model.full$ci.ub, model.full$b[1,1], model.full$ci.lb, model.full$b[1,1]),
                         y = c(max(df_es$y)+2, max(df_es$y)+2.5, max(df_es$y)+2, max(df_es$y)+1.5))
@@ -151,8 +156,7 @@ pforest <- ggplot(data=df_es)+
   theme(axis.text.y = element_text(size=ylabsize))+
   theme_minimal()
 
-ggsave(paste0("threelevel_ma_forest", p, ".png"), pforest, device = "png")
-if(p == "Acq retr to ctx") ggsave(paste0("threelevel_ma_forest", p, ".png"), pforest, device = "png", width = 7, height = 12)
+ggsave(paste0("threelevel_ma_forest", p, ".png"), pforest, device = "png", height = (nrow(df)+2)*.2)
 res = data.frame(Variance = c("Overall ES", "V within", "V between"),
                  rbind(c(estimate = model.full$b[1,1], ci.lb = model.full$ci.lb, ci.ub = model.full$ci.ub, model.full$pval),
                        c(confints[[1]]$random[1,], aov_table$p[3]),
@@ -161,30 +165,29 @@ res = data.frame(Variance = c("Overall ES", "V within", "V between"),
     aov_table = aov_table,
        res = res)     
 })
+names(mlm) <- samples
 saveRDS(mlm, "mlm.RData")
 
-tb <- lapply(1:length(processes), function(i){
+tb <- lapply(1:length(samples), function(i){
   tb <- mlm[[i]]$res
-  tb$Process <- processes[i]
+  tb$Sample <- samples[i]
   tb
 })
 tb <- do.call(rbind, tb)
 tb$CI <- tidySEM::conf_int(lb = tb$ci.lb, ub = tb$ci.ub)
 tb[c("ci.lb", "ci.ub")] <- NULL
-names(tb) <- c("Parameter", "Estimate", "p", "Process", "CI")
+names(tb) <- c("Parameter", "Estimate", "p", "Sample", "CI")
 write.csv(tb, "tab_threelevel.csv", row.names = FALSE)
 ```
 ```{r, include = FALSE}
-num_effect_sizes <- table(table(dat$article.code))
+num_effect_sizes <- table(table(dat$id_sample))
 ```
-
-
 
 ## Descriptive statistics
 
 The effect size estimates ranged from `r formatC(min(dat[["yi"]]), digits = 2, format = "f")` to `r formatC(max(dat[["yi"]]), digits = 2, format = "f")` ($M `r report(mean(dat[["yi"]]))`, SD `r report(sd(dat[["yi"]]))`$). 
-One study had an effect size estimate almost 15 standard deviations from the mean effect size ($Z = 14.98$); it was removed as an outlier.
-Sample sizes ranged from `r min(rowSums(dat[, c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group")]))` to `r max(rowSums(dat[, c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group")]))` animals ($M = `r formatC(mean(rowSums(dat[, c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group")])), digits = 2, format = "f")`, SD = `r formatC(sd(rowSums(dat[, c("number.of.animals.in.control.group", "number.of.animals.in.intervention.group")])), digits = 2, format = "f")`$). Several studies reported multiple effect sizes (`r min(names(num_effect_sizes)) ` - `r max(names(num_effect_sizes))`, with most reporting effect size).
+**Five effect sizes exceeded 3 standard deviations from the mean effect size; consider removing these as outliers.**
+Several studies reported multiple effect sizes (`r min(as.integer(names(num_effect_sizes))) ` - `r max(as.integer(names(num_effect_sizes)))`, with most reporting 1 effect size).
 
 ## Meta-analysis 
 
@@ -217,26 +220,26 @@ $$
 
 The first equation indicates that observed effect sizes are equal to the underlying population effect size, plus sampling error $\epsilon_{jk}$. The second equation indicates that population effect sizes within studies are a function of a study-specific true effect size, plus within-study residuals $w_{jk}$. The third equation indicates that the distribution of study-specific true effect sizes are distributed around an overall mean effect, with between-study residuals $b_k$.
 
-Separate meta-analyses were conducted for each of the fear learning processes.
+Separate meta-analyses were conducted for each of the samples.
 The overall pooled effect sizes were:
 
 ```{r, results = "asis"}
 mlm <- readRDS("mlm.RData")
 tb <- read.csv("tab_threelevel.csv", stringsAsFactors = FALSE)
-# kbl(tb[, c("Parameter", "Estimate", "CI", "p", "Process")], digits = 2) |>
+# kbl(tb[, c("Parameter", "Estimate", "CI", "p", "Sample")], digits = 2) |>
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 datatable(tb, rownames= FALSE, options = list(
               "pageLength" = nrow(tb))) |>
   formatRound(columns=c('Estimate', 'p'), digits=2)
 ```
 
-The overall effect size estimate differed significantly from zero only for `r paste0(tb[tb$Parameter == "Overall ES", ]$Process[tb[tb$Parameter == "Overall ES", ]$p < .05], collapse = ", ")`.
+The overall effect size estimate differed significantly from zero for `r paste0(tb[tb$Parameter == "Overall ES", ]$Sample[tb[tb$Parameter == "Overall ES", ]$p < .05], collapse = ", ")`.
 
-The within-studies variance component $\sigma^2_w$ (between effect sizes) was significant only for `r paste0(tb[tb$Parameter == "V within", ]$Process[tb[tb$Parameter == "V within", ]$p < .05], collapse = ", ")`.
+The within-studies variance component $\sigma^2_w$ (between effect sizes) was significant for `r paste0(tb[tb$Parameter == "V within", ]$Sample[tb[tb$Parameter == "V within", ]$p < .05], collapse = ", ")`.
 
-The between-studies variance $\sigma^2_b$ was significant for all processes, except `r paste0(tb[tb$Parameter == "V between", ]$Process[tb[tb$Parameter == "V between", ]$p > .05], collapse = ", ")`.
+The between-studies variance $\sigma^2_b$ was significant for `r paste0(tb[tb$Parameter == "V between", ]$Sample[tb[tb$Parameter == "V between", ]$p < .05], collapse = ", ")`.
 
-This indicates that there was substantial heterogeneity between average effect sizes across studies, but not between effect sizes published within the same studies.
+This indicates that there was substantial heterogeneity between average effect sizes, both within studies and across studies, in most of the samples.
 
 ## Forest plots
 
@@ -247,7 +250,7 @@ thus, the most precise estimates are at the bottom, near the overall effect.
 
 ```{r runplots, include=FALSE}
 out = NULL
-for (i in 1:length(processes)) {
+for (i in 1:length(samples)) {
   out = c(out, knit_expand('forest.rmd'))
 }
 ```
@@ -256,18 +259,23 @@ for (i in 1:length(processes)) {
 
 ## Moderator analyses
 
-Five categorical moderators were coded: (SSRI, frequency, disease induction, species, type of test).
-The effect of these moderators was investigated using meta-regression.
-Note however that 77 dummy variables were required to encode all conditions of these categorical moderators.
-As this exceeded in many cases the number of available effect sizes (per process),
+The effect of multiple moderators was investigated using meta-regression.
+For two continuous variables, dose and HED, a quadratic term was computed to examine the non-linear (U-shaped) effect.
+For categorical variables, dummies were encoded.
+Note that the resulting moderator matrix had 25 columns.
+As this exceeded in many cases the number of available effect sizes (per sample),
 these models were not identified.
 Addressing this problem requires performing variable selection.
-Three steps were taken to do so. 
-First, categories that did not occur within one subset of the data (by process) were omitted, as their dummy variables are constant for that specific dataset.
+Three steps were taken to do so.
+First, variables and categories that did not occur within one subset of the data were omitted.
 Secondly, some dummy variables were redundant because some studies had identical values on multiple dummy variables.
 Only one of these redundant dummy variables was retained, and its name was updated to reflect all redundant dummies it represents.
-Thirdly, despite these measures, many meta-regression models dropped all or some of the predictors, suggesting the models were empirically non-identified.
-Although these models are available in the online supplemental materials,
+For example, all of the studies in the category "Both" of the variable "sex" used the "public speaking test", and no other sex category used this test.
+These two variables are therefore identical, and their effects cannot be distinguished.
+Thus, the analysis shows their joint effect as an effect of `sexBoth.anxiety_testspeaking`.
+Thirdly, despite these measures, many meta-regression models dropped all or some of the predictors,
+or failed to converge entirely, suggesting the models were empirically non-identified.
+Although these models are reported below,
 we advise against their substantive interpretation.
 
 The problems with meta-regression suggests that a technique is required that performs variable selection during analysis.
@@ -281,16 +289,29 @@ Note that, as this is a Bayesian model, inference is based on credible intervals
 A credible interval is interpreted as follows: The population value falls within this interval with 95% probability (certainty).
 This is different from the interpretation of frequentist confidence intervals, which are interpreted as follows: In the long run, 95% of confidence intervals contain the population value.
 
-Because the within-studies variance component was non-significant in most three-level analyses,
-and because most studies only had one effect size, we dropped the third level in the moderator analyses.
+As the models contained several categorical variables but no meaningful reference category,
+we estimated models _without_ an intercept, and instead included an equal number of dummies to the number of unique categories (ANOVA specification instead of regression specification).
+To further aid interpretability, the dependent variable (effect size) was centered around the three-level multilevel meta-analysis estimated overall effect.
+This means that the regression slope for each dummy variable reflects the deviation of that category from the overall effect size as estimated in the three-level multilevel meta-analysis.
+If a dummy variable has a significant effect, that means that that group's mean differs significantly from the overall mean.
+Note that in penalized regression, predictors are usually standardized.
+However, the effect of standardized dummies cannot be meaningfully interpreted. 
+Therefore, only continuous predictors were standardized in this analysis.
+This may give dummy variables a slight advantage, leading them to become significant sooner than continuous ones.
 
 ```{r, eval = run_everything}
 library(metacart)
-modres <- lapply(processes, function(p){
-  df <- dat[dat$Process == p, ]
-  modmat <- model.matrix(~., df[mods])[,-1]
+source("../correct_metacart.R")
+modres <- lapply(samples, function(p){
+  df <- dat[dat$Sample == p, ]
+  constcols <- sapply(df, function(i){length(unique(i)) < 2})
+  constcolnames <- names(df)[constcols]
+  theform <- stats::reformulate(mods[!mods %in% constcolnames])
+  dfmod <- df[, mods[!mods %in% constcolnames]]
+  dfmod$hed[is.na(dfmod$hed)] <- median(dfmod$hed, na.rm = TRUE)
+  dfmod$hed2[is.na(dfmod$hed2)] <- dfmod$hed[is.na(dfmod$hed2)]^2
+  modmat <- model.matrix(theform, dfmod)[,-1]
   constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
-  constcolnames <- colnames(modmat)[constcols]
   modmat <- modmat[, !constcols]
   modmatlist <- as.list(data.frame(modmat))
   dupcols <- duplicated(modmatlist)
@@ -301,25 +322,41 @@ modres <- lapply(processes, function(p){
     idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
     colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
   }
-  res <- rma(yi = df$yi,
-             vi = df$vi,
-             mods = modmat)
-  vifs <- vif(res)
-  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2"),
-                       cbind(
-                         Estimate = c(res$b, res$tau2),
-                         se = c(res$se, res$se.tau2),
-                         ci.lb = c(res$ci.lb, res$tau2-1.96*res$se.tau2),
-                         ci.ub = c(res$ci.ub, res$tau2+1.96*res$se.tau2),
-                         p = c(res$pval, res$QEp)))
+  yi_centered <- df$yi - mlm[[p]]$mod$b[1,1]
+  res <- try(rma.mv(yi = yi_centered, V = df$vi, random = list(~ 1 | id_sample, ~ 1 | id_es), data = df, intercept = FALSE, mods = modmat))
+  if(inherits(res, "try-error")){
+    tabres <- NULL
+  } else {
+      vifs <- vif(res)
+    confints <- confint(res)
+  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2b", "Tau2w"),
+                       Estimate = c(res$b, res$sigma2),
+                       ci.lb = c(res$ci.lb, confints[[1]]$random[1,2], confints[[2]]$random[1,2]),
+                       ci.ub = c(res$ci.ub, confints[[1]]$random[1,3], confints[[2]]$random[1,3]),
+                       p = c(res$pval, NA, NA),
+                       sig = c(c("", "*")[(res$pval < .05)+1], c("", "*")[(c(confints[[1]]$random[1,2], confints[[2]]$random[1,2])> 1e-4)+1]),
+                       VIF = c(vifs$vif, NA, NA))
   tabres$CI <- conf_int(lb = tabres$ci.lb, ub = tabres$ci.ub)
   tabres[c("ci.lb", "ci.ub")] <- NULL
-  tabres$VIF <- c(NA, vifs$vif, NA)
+  tabres$Sample <- p
+  tabres
   write.csv(tabres, paste0("rma_mods_", p, ".csv"))
-  
+  }
   
   moddat <- data.frame(df[c("yi", "vi")], modmat)
-  pma <- brma(yi ~., data = moddat)
+  cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
+  std <- moddat[, !cats]
+  std <- scale(std[, -c(1:2)])
+  cats <- moddat[, cats]
+  
+  standardize <- list(
+    center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
+    scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
+  )
+  moddat <- cbind(yi = yi_centered, vi = df$vi, std, cats)
+  
+  moddat$study <- 1
+  pma <- brma(yi ~-1+., study = "study", data = moddat, standardize = standardize)
   sumpma <- data.frame(summary(pma)$coefficients)
   sumpma <- cbind(rownames(sumpma), sumpma)
   names(sumpma)[1:3] <- c("Parameter", "Estimate", "se")
@@ -335,13 +372,19 @@ modres <- lapply(processes, function(p){
   write.csv(sumpma, paste0("brma_mods_", p, ".csv"))
   moddatvi <- moddat$vi
   moddat <- moddat[, -which(colnames(moddat) == "vi")]
-  resmc <- suppressWarnings(metacart::FEmrt(yi~., data = moddat, vi = moddatvi))
+  set.seed(1)
+  resmc <- suppressWarnings(REmrt(reformulate(names(moddat[2:(ncol(moddat)-1)]), response = "yi"), data = moddat, vi = moddatvi, c = 0))
+  mc_tab <- data.frame(resmc$n, resmc$g, 
+                                          resmc$se, resmc$pval, conf_int(lb = resmc$ci.lb, ub = resmc$ci.ub))
+  
+  names(mc_tab) <- c("Number", "Overall ES", "se", "pval", "CI")
   list(rma = tabres,
        brma = sumpma,
-       mc = resmc)
+       mc = resmc,
+       mc_tab = mc_tab)
 })
+names(modres) <- samples
 saveRDS(modres, "modres.RData")
-
 ```
 
 ### Classic meta-regression
@@ -353,40 +396,9 @@ modres <- readRDS("modres.RData")
 Note that analyses containing VIF values greater than 5 should be regarded as problematic, due to multicolinearity.
 This applies to nearly all models.
 
-```{r, results = "asis", eval = FALSE}
-
-htmltools::tagList(
-  lapply(1:length(processes), function(i) {
-    p <- processes[i]
-    tb <- modres[[i]]$rma
-    tb$format <- as.integer(tb$p < .05)
-    formatStyle(
-      formatRound(
-        datatable(
-          tb,
-          rownames = FALSE,
-          caption = paste0("Meta-regression coefficients for ", p),
-          options = list(columnDefs = list(list(
-            targets = 6, visible = FALSE
-          )),
-          "pageLength" = nrow(tb))
-        ),
-        columns = c('Estimate', "se", 'p', "VIF"),
-        digits = 2
-      ),
-      "format",
-      target = "row",
-      backgroundColor = styleEqual(c(0, 1), c('gray', 'white'))
-    )
-  })
-)
-
-```
-
-
 ```{r run-numeric-md, include=FALSE}
 out = NULL
-for (i in 1:length(processes)) {
+for (i in 1:length(samples)) {
   out = c(out, knit_expand('tab_rma_template.rmd'))
 }
 ```
@@ -395,47 +407,9 @@ for (i in 1:length(processes)) {
 
 ### Bayesian regularized meta-regression:
 
-```{r, results = "asis", eval = FALSE}
-for(i in 1:length(processes)){
-  p <- processes[i]
-  tb <- modres[[i]]$brma
-  tb$format <- as.integer(tb$p == "*")
-  print({datatable(tb, rownames= FALSE, caption = paste0("Bayesian regularized meta-regression coefficients for ", p), options = list(
-              "pageLength" = nrow(tb))) |>
-  formatRound(columns=c('Estimate', 'p'), digits=2)})
-}
-htmltools::tagList(
-  lapply(1:length(processes), function(i) {
-    p <- processes[i]
-    tb <- modres[[i]]$brma
-    tb$format <- as.integer(tb$p < .05)
-    formatStyle(
-      formatRound(
-        datatable(
-          tb,
-          rownames = FALSE,
-          caption = paste0("Bayesian regularized meta-regression coefficients for ", p),
-          options = list(columnDefs = list(list(
-            targets = 7, visible = FALSE
-          )),
-          "pageLength" = nrow(tb))
-        ),
-        columns = c('Estimate', "se"),
-        digits = 2
-      ),
-      "format",
-      target = "row",
-      backgroundColor = styleEqual(c(0, 1), c('gray', 'white'))
-    )
-  })
-)
-
-```
-
-
 ```{r run-numeric-md2, include=FALSE}
 out = NULL
-for (i in 1:length(processes)) {
+for (i in 1:length(samples)) {
   out = c(out, knit_expand('tab_brma_template.rmd'))
 }
 ```
@@ -446,15 +420,13 @@ for (i in 1:length(processes)) {
 
 Based on three-level multilevel meta-analyses,
 there is limited evidence that overall effects are non-zero in the population,
-except for the processes "Acq retr to ctx" and "Ext retr to ctx".
-All processes showed significant between-studies variance, except "Ext retr to cue".
-Conversely, none of the processes showed significant within-studies variance, except "Acq retr to ctx".
+except for the samples "Acq retr to ctx" and "Ext retr to ctx".
+All samples showed significant between-studies variance, except "Ext retr to cue".
+Conversely, none of the samples showed significant within-studies variance, except "Acq retr to ctx".
 There is thus substantial evidence that heterogeneity in effect sizes is mostly due to between-studies differences.
 
 Classic meta-regression analyses were largely invalid for moderator analysis,
 because of high multicolinearity among predictors.
 BRMA analyses were used, which are robust to multicolinearity, and perform variable selection by shrinking regression coefficients towards zero.
-These BRMA analyses revealed no consistent evidence of any significant moderator effect across processes.
-To exclude the possibility that multiple dummies interacted together,
-I conducted additional sensitivity analyses using `metaCART` - a decision-tree based algorithm that inherently accommodates interactions between dummies.
-However, the `metaCART` analyses also did not find evidence of interaction effects.
+These BRMA analyses revealed no consistent evidence of any significant moderator effect across samples.
+

@@ -1,5 +1,6 @@
 ```{r tabrma{{i}}, results = 'asis'}
-p <- processes[{{i}}]
+if(!is.null(modres[[{{i}}]][["rma"]])){
+  p <- samples[{{i}}]
     tb <- modres[[{{i}}]]$rma
     tb$format <- as.integer(tb$p < .05)
     formatStyle(
@@ -13,11 +14,15 @@ p <- processes[{{i}}]
           )),
           "pageLength" = nrow(tb))
         ),
-        columns = c('Estimate', "se", 'p', "VIF"),
+        columns = c('Estimate', 'p', "VIF"),
         digits = 2
       ),
       "format",
       target = "row",
       backgroundColor = styleEqual(c(0, 1), c('gray', 'white'))
     )
+} else {
+  cat("Model for ", samples[{{i}}], " did not converge.")
+}
+
 ```

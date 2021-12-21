@@ -1,83 +1,37 @@
 ﻿Original,Rename
-type.of.ssriCitalopram,ssri.CIT
-type.of.ssriEscitalopram,ssri.ESC
-type.of.ssriFluovoxamine,ssri.FLV
-type.of.ssriFluoxetine,ssri.FLX
-type.of.ssriFluvoxamine,ssri.FLV
-type.of.ssriParoxetine,ssri.PAR
-type.of.ssriSertraline,ssri.SER
-type.of.ssriSetraline,ssri.SER
-frequencyAcute,freq.acute
-frequencyAcute [1 day],freq.acute1
-"frequencyChronic [daily, ~150x]",freq.chronic150x
-"frequencyChronic [daily, 10x]",freq.chronic10x
-"frequencyChronic [daily, 12x]",freq.chronic12x
-"frequencyChronic [daily, 13x]",freq.chronic13x
-"frequencyChronic [daily, 14x]",freq.chronic14x
-"frequencyChronic [daily, 15x]",freq.chronic15x
-"frequencyChronic [daily, 16x]",freq.chronic16x
-"frequencyChronic [daily, 18x]",freq.chronic18x
-"frequencyChronic [daily, 19x]",freq.chronic19x
-"frequencyChronic [daily, 20x]",freq.chronic20x
-"frequencyChronic [daily, 21x]",freq.chronic21x
-"frequencyChronic [daily, 22x]",freq.chronic22x
-"frequencyChronic [daily, 23x]",freq.chronic23x
-"frequencyChronic [daily, 24x]",freq.chronic24x
-"frequencyChronic [daily, 25x]",freq.chronic25x
-"frequencyChronic [daily, 26x]",freq.chronic26x
-"frequencyChronic [daily, 28x]",freq.chronic28x
-"frequencyChronic [daily, 29x]",freq.chronic29x
-"frequencyChronic [daily, 30x]",freq.chronic30x
-"frequencyChronic [daily, 31x]",freq.chronic31x
-"frequencyChronic [daily, 33x]",freq.chronic33x
-"frequencyChronic [daily, 44x]",freq.chronic44x
-"frequencyChronic [daily, 7x]",freq.chronic7x
-"frequencyChronic [daily, 8x]",freq.chronic8x
-"frequencyChronic [daily, 9x]",freq.chronic9x
-"frequencyChronic [daily, minimally 14x]",freq.chronic14x
-"frequencyChronic [daily, NR]",freq.chronicNR
-"frequencyChronic[daily, 11x]",freq.chronic11x
-frequencySubchronic [3x in 24 h],freq.sub3x24h
-"frequencySubchronic [daily, 2x]",freq.sub2x
-"frequencySubchronic [daily, 3x]",freq.sub3x
-"frequencySubchronic [daily, 4x]",freq.sub4x
-"frequencySubchronic [daily, 5x]",freq.sub5x
-"frequencySubchronic [daily, 6x]",freq.sub6x
-disease.induction3xTgAD,disease.TTG
-disease.inductionAcute uncontrollable stress,disease.AUS
-disease.inductionChronic social defeat,disease.CSD
-disease.inductionChronic unpredictable stress,disease.CUS
-disease.inductionHigh fear,disease.highfear
-disease.inductionImmobilization stressed,disease.IS
-disease.inductionLow fear,disease.lowfear
-disease.inductionMaternal separation,disease.MS
-disease.inductionMeCP2-308,disease.MeCP2-308
-disease.inductionNone,disease.none
-disease.inductionOlfactory bulbectomized,disease.OB
-disease.inductionPdcd2-/-,disease.Pdcd2
-disease.inductionRestraint,disease.restraint
-disease.inductionSingle prolonged stress,disease.SPS
-disease.inductionTime-dependent sensitization,disease.TDS
-disease.inductionTime dependent sensitization,disease.TDS
-disease.inductionVariable stress,disease.VS
-disease.inductionVGV 5-HT2CR,disease.VGV5HT2CR
-disease.inductionWIRS,disease.WIRS
-disease.inductionZfpm1CKO,disease.Zfpm1CKO
-speciesCommon goldfish,species.goldfish
-speciesHuman,species.human
-speciesMouse,species.mouse
-speciesRabbit,species.rabbit
-speciesRat,species.rat
-speciesZebrafish,species.zebrafish
-type.of.testActive avoidance,test.AA
-type.of.testAvoidance conditioning,test.AC
-type.of.testCODA,test.CODA
-type.of.testConditioned emotional response,test.CER
-type.of.testConditioned freezing,test.CF
-type.of.testConditioned place aversion,test.CPA
-type.of.testFear potentiated startle,test.FPS
-type.of.testInhibitory avoidance,test.IA
-type.of.testPassive avoidance,test.PA
-type.of.testPlus-maze discriminative avoidance task,test.PMDAT
-type.of.testStep through avoidance,test.STA
-type.of.testTwo-way active avoidance,test.TWAA
+study id,paper
+first author,author
+pubyear,year
+papers,id_sample
+effect sizes,id_es
+experiments,id_experiment
+experiments comments 1,experiments comments 1
+experiments comments 2,experiments comments 2
+toedieningsroute,administration
+drug,drug
+drug class,drug_class
+dose_unit,dose_unit
+dose,dose
+unit,unit
+hed,hed
+frequency,frequency
+timing,timing
+multiplication factor es,mult_es
+anxiety test,anxiety_test
+type of outcome,outcome_type
+type of anxiety test,test_type
+species,species
+strain,strain
+disease (model),disease
+mean treatment group,mtreat
+se treatment group,setreat
+n treatment group,ntreat
+sd treatment group,sdtreat
+mean control group,mcon
+se control group,secon
+n control group,ncon
+sd control group,sdcon
+sex,sex
+disease (model) short,disease
+species short,species
+anxiety test categories,anxiety_test
