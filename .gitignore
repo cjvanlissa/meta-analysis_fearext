@@ -12,3 +12,4 @@
 .Rproj.user
 !dat.csv
 !codebook_dat.csv
+manuscript/modres.RData

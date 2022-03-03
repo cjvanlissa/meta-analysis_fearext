@@ -1,0 +1,3 @@
+```{r postplot{{i}}}
+knitr::include_graphics("{{plotname}}")
+```

@@ -1,3 +1,13 @@
+```{r tabref{{i}}, results = 'asis'}
+  p <- samples[{{i}}]
+tb <- modres[[{{i}}]]$refcat
+    # knitr::kable(tb, caption = paste0("Reference category for each variable for process ", p))
+    datatable(
+          tb,
+          rownames = FALSE,
+          caption = paste0("Reference category for each variable for sample ", p))
+```
+
 ```{r tabrma{{i}}, results = 'asis'}
 if(!is.null(modres[[{{i}}]][["rma"]])){
   p <- samples[{{i}}]
