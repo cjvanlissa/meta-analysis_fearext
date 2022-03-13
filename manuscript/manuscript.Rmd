@@ -62,10 +62,6 @@ dat <- escalc(measure = "SMD",
 dat <- dat[!is.na(dat$yi), ]
 zscores <- scale(dat[["yi"]])
 maxz <- max(abs(zscores))
-#dat <- dat[-which.max(zscores), ]
-mods_cont <- c("dose", "hed")
-dat[mods_cont] <- lapply(dat[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
-dat[paste0(mods_cont, "2")] <- lapply(dat[mods_cont], function(x)x^2)
 saveRDS(dat, "dat.RData")
 ```
 
@@ -318,9 +314,21 @@ library(metacart)
 source("../correct_metacart.R")
 modres <- lapply(samples, function(p){
   df <- dat[dat$Sample == p, ]
+  if(p == "CBDanimalunconditioned"){
+    df[["administration"]] <- NULL
+  }
+  if(p == "CBDhumanexperimental"){
+    mods_cont <- c("dose", "hed")
+    df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+    df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+  } else {
+    mods <- mods[!mods %in% c("dose", "dose2")]
+  }
   constcols <- sapply(df, function(i){length(unique(i)) < 2})
   constcolnames <- names(df)[constcols]
-  dfmod <- df[, mods[!mods %in% constcolnames]]
+  mods <- mods[!mods %in% constcolnames]
+  mods <- mods[mods %in% names(df)]
+  dfmod <- df[, mods]
   
   # Find ref cat
   catvars <- sapply(dfmod, class) == "factor"
