@@ -1,0 +1,8 @@
+"","Parameter","Estimate","p","sig","VIF","CI","Sample"
+"1","intrcpt",0.780956239146421,4.51547708655294e-05,"*",NA,"[0.41, 1.16]","CBDhumanexperimental"
+"2","anxiety_testSPECT imaging (subjective assessments taken beforehand)",0.5950367081973,0.14087437062911,"",1.15916644941538,"[-0.20, 1.39]","CBDhumanexperimental"
+"3","anxiety_testViewing fearful faces with different intensity of fearfulness",0.182440981236434,0.672380480970488,"",1.18062208155392,"[-0.66, 1.03]","CBDhumanexperimental"
+"4","dose",0.000558343738637646,0.182907064230875,"",1.54283544093212,"[-0.00, 0.00]","CBDhumanexperimental"
+"5","dose2",-5.35587683503863e-06,0.00124455484026272,"*",1.75338394379292,"[-0.00, -0.00]","CBDhumanexperimental"
+"6","Tau2b",6.43187315756757e-10,NA,"",NA,"[0.00, 2.25]","CBDhumanexperimental"
+"7","Tau2w",0,NA,"",NA,"[0.00, 0.21]","CBDhumanexperimental"

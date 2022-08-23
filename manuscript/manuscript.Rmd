@@ -8,7 +8,8 @@ knit: worcs::cite_all
 ---
 
 ```{r setup, include=FALSE}
-run_everything = FALSE
+run_everything = TRUE
+sensitivity = FALSE
 library("worcs")
 library(ggplot2)
 library(kableExtra)
@@ -28,38 +29,48 @@ library(pema)
 # Then, uncomment the line below to load the original or synthetic data
 # (whichever is available), to allow anyone to reproduce your code:
 load_data()
-dat$paper <- as.character(dat$paper)
-dat$author <- as.character(dat$author)
+dat$paper <- as.character(dat$study_id)
+dat$author <- as.character(dat$first_author)
 dat$dose_unit <- as.character(dat$dose_unit)
 dat$strain <- as.character(dat$strain)
-dat$id_sample <- as.integer(factor(do.call("paste", dat[c("paper", "id_sample")])))
+dat$outcome <- dat$type_of_outcome
+# dat$papers <- as.integer(factor(do.call("paste", dat[c("paper", "papers")])))
+dat$id_experiment <- as.integer(factor(do.call("paste", c(dat[c("first_author", "papers", "experiments")], list(sep = "_")))))
+dat$id_es <- 1:nrow(dat)
+if(sensitivity){
+  dat <- dat[!dat$study_id %in% c("Seillier_2013_22_6", "Seillier_2013_23_6", "Seillier_2013_24_6", "Seillier_2013_26_6", "Seillier_2013_27_6", "Seillier_2018_100_40", "Crippa_2004_16_4", "Fusar-Poli_2009_19_6", "Zuardi_1993_17_5", "Zuardi_1993_18_5", "Kathuria_2003_70_28", "Kathuria_2003_71_28", "Kathuria_2003_72_28", "Cheng_2014_13_3", "Murkar_2019_29_8", "Murkar_2019_30_8", "Cheng_2014_11_3", "Cheng_2014_12_3", "Shoval_2016_37_10", "Shoval_2016_38_10", "Shoval_2016_39_10", "Shoval_2016_40_11", "Shoval_2016_41_11", "Shoval_2016_42_11", "Shoval_2016_43_10", "Shoval_2016_44_10", "Shoval_2016_45_10", "Shoval_2016_46_11", "Shoval_2016_47_11", "Shoval_2016_48_11", "Cheng_2014_75_24", "Kajero_2020_96_34", "Silvestri_2020_194_48", "Deiana_2012_228_60", "Deiana_2012_229_60", "Moise_2008_89_36", "Moise_2008_90_36", "Moise_2008_91_36", "Simmons_2021_101_41", "Simmons_2021_102_41", "Simmons_2021_103_41", "Simmons_2021_104_41", "Simmons_2021_105_41", "Simmons_2021_106_41"), ]
+}
 cat <- sapply(dat, inherits, "factor")
 
 # for(v in names(dat)[cat]){
 #   out <- data.frame(Variable = v, Levs = levels(dat[[v]]))
 #   write.table(out, "rename_cats.csv", append = TRUE, row.names = F, col.names = F, sep = ",")
 # }
-recat <- read.csv("rename_cats.csv", stringsAsFactors = F, header = F)
-for(v in names(dat)[cat]){
-  thelevs <- recat[recat[[1]] == v, ]
-  levels(dat[[v]]) <- thelevs$V3[match(levels(dat[[v]]), thelevs$V2)]
-}
+# recat <- read.csv("rename_cats.csv", stringsAsFactors = F, header = F)
+# for(v in names(dat)[cat]){
+#   thelevs <- recat[recat[[1]] == v, ]
+#   if(!all(levels(dat[[v]]) %in% thelevs$V2)){
+#     browser()
+#   }
+#   levels(dat[[v]]) <- thelevs$V3[match(levels(dat[[v]]), thelevs$V2)]
+# }
 
-dat$Sample <- ordered(dat$Sample, levels = c("CBDhumanexperimental", "CBDanimalconditioned", 
-"CBDanimalunconditioned", "AM404conditioned", "AM404unconditioned", "URB597conditioned", "URB597unconditioned", "PF3485unconditioned")
-)
+dat$Sample <- ordered(dat$Sample, levels = c("CBDhumanexperimental", "CBDanimalconditioned", "CBDanimalunconditioned", "AM404conditioned", "AM404unconditioned", 
+"URB597conditioned", "URB597unconditioned", "PF3845unconditioned"))
 samples <- levels(dat$Sample)
 
 dat <- escalc(measure = "SMD",
-         n1i = dat$ncon,
-         n2i = dat$ntreat,
-         m1i = dat$mcon,
-         m2i = dat$mtreat,
-         sd1i = dat$sdcon,
-         sd2i = dat$sdtreat,
+         n1i = dat$n_control_group,
+         n2i = dat$n_treatment_group,
+         m1i = dat$mean_control_group,
+         m2i = dat$mean_treatment_group,
+         sd1i = dat$sd_control_group,
+         sd2i = dat$sd_treatment_group,
          data = dat)
 
 dat <- dat[!is.na(dat$yi), ]
+
+dat$yi <- dat$yi * dat$multiplication_factor_es
 zscores <- scale(dat[["yi"]])
 maxz <- max(abs(zscores))
 saveRDS(dat, "dat.RData")
@@ -68,7 +79,8 @@ saveRDS(dat, "dat.RData")
 ```{r}
 dat <- readRDS("dat.RData")
 samples <- levels(dat$Sample)
-mods <- c("year", "dose",  "dose2", "hed", "hed2", "sex", "administration", "timing", "disease", "anxiety_test","species", "outcome_type", "frequency")
+
+mods <- c("pubyear", "dose",  "dose2", "hed", "hed2", "sex", "timing", "disease", "anxiety_test","species", "outcome", "frequency")
 ```
 
 
@@ -97,11 +109,11 @@ mods <- c("year", "dose",  "dose2", "hed", "hed2", "sex", "administration", "tim
 mlm <- lapply(samples, function(p){
   df <- dat[dat$Sample == p, ]
   #Conduct meta-analyses
-  #model.mods <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), data=df) 
-  model.full <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), data=df) 
-  model.between_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(NA,0), data = df) 
-  model.within_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(0,NA), data = df) 
-model.both_null <- rma.mv(yi, vi, random = list(~ 1 | id_sample, ~ 1 | id_es), sigma2=c(0,0), data = df) 
+  #model.mods <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data=df) 
+  model.full <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data=df) 
+  model.between_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(NA,0), data = df) 
+  model.within_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(0,NA), data = df) 
+model.both_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(0,0), data = df) 
 
 # Compute I2
 W <- diag(1/df$vi)
@@ -110,9 +122,9 @@ P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
 I2 <- 100 * model.full$sigma2 / (sum(model.full$sigma2) + (model.full$k-model.full$p)/sum(diag(P)))
 names(I2) <- c("I2_Between", "I2_Within")
 
-#model.mods <- rma.mv(yi, vi, mods = as.formula(paste0("~ ", paste(moderators, collapse = " + "))), random = list(~ 1 | id_sample, ~ 1 | id_es), data = df) 
+#model.mods <- rma.mv(yi, vi, mods = as.formula(paste0("~ ", paste(moderators, collapse = " + "))), random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df) 
 #ggplot(, aes(x=d, colour=interventioncode))+geom_density()
-#anova(model.full,rma.mv(yi, vi, mods = ~interventioncode, random = list(~ 1 | id_sample, ~ 1 | id_es), data = df) ) 
+#anova(model.full,rma.mv(yi, vi, mods = ~interventioncode, random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df) ) 
 aov_within <- anova(model.full,model.within_null) 
 aov_between <- anova(model.full,model.between_null) 
 aov_bothnull <- anova(model.full,model.both_null) 
@@ -170,11 +182,22 @@ res[[1]][nrow(res)-c(0,1)] <- names(I2)
 res[[2]][nrow(res)-c(0,1)] <- I2
   list(mod = model.full,
     aov_table = aov_table,
-       res = res)     
+       res = res,
+    dfoverall = dfoverall)     
 })
 names(mlm) <- samples
 saveRDS(mlm, "mlm.RData")
 
+# Make plot for all effect sizes
+p_overall <- ggplot(NULL)
+for(i in seq_along(samples)){
+  p <- samples[i]
+  df_tmp <- mlm[[p]]$dfoverall
+  df_tmp$y <- c(i, i+.2, i, i-.2)
+  p_overall <- p_overall + geom_polygon(data = df_tmp, aes(x = x, y = y))
+}
+p_overall <- p_overall + geom_vline(xintercept = 0, linetype = 2) + theme_bw() + scale_y_continuous(breaks = seq_along(samples), labels = samples) + theme(axis.title.y = element_blank()) + xlab("Pooled effect size")
+ggsave("pooled_effects.png", p_overall, device = "png")
 tb <- lapply(1:length(samples), function(i){
   tb <- mlm[[i]]$res
   tb$Sample <- samples[i]
@@ -187,7 +210,7 @@ names(tb) <- c("Parameter", "Estimate", "p", "Sample", "CI")
 write.csv(tb, "tab_threelevel.csv", row.names = FALSE)
 ```
 ```{r, include = FALSE}
-num_effect_sizes <- table(table(dat$id_sample))
+num_effect_sizes <- table(table(dat$id_experiment))
 ```
 
 ## Descriptive statistics
@@ -313,22 +336,25 @@ This may give dummy variables a slight advantage, leading them to become signifi
 library(metacart)
 source("../correct_metacart.R")
 modres <- lapply(samples, function(p){
+  print(p)
   df <- dat[dat$Sample == p, ]
   if(p == "CBDanimalunconditioned"){
     df[["administration"]] <- NULL
   }
   if(p == "CBDhumanexperimental"){
-    mods_cont <- c("dose", "hed")
-    df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
-    df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+    df[c("hed", "hed2")] <- NULL
+    mods_cont <- c("dose")
   } else {
-    mods <- mods[!mods %in% c("dose", "dose2")]
+    df[c("dose", "dose2")] <- NULL
+    mods_cont <- c("hed")
   }
+  df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+  df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
   constcols <- sapply(df, function(i){length(unique(i)) < 2})
   constcolnames <- names(df)[constcols]
   mods <- mods[!mods %in% constcolnames]
   mods <- mods[mods %in% names(df)]
-  dfmod <- df[, mods]
+  dfmod <- df[, mods, drop = FALSE]
   
   # Find ref cat
   catvars <- sapply(dfmod, class) == "factor"
@@ -341,22 +367,30 @@ modres <- lapply(samples, function(p){
   completecases <- complete.cases(dfmod)
   modmat <- model.matrix(~., dfmod)
   
-  dfmod$hed[is.na(dfmod$hed)] <- median(dfmod$hed, na.rm = TRUE)
-  dfmod$hed2[is.na(dfmod$hed2)] <- dfmod$hed[is.na(dfmod$hed2)]^2
+  if(p == "CBDhumanexperimental"){
+    dfmod$dose[is.na(dfmod$dose)] <- median(dfmod$dose, na.rm = TRUE)
+    dfmod$dose2[is.na(dfmod$dose2)] <- dfmod$dose[is.na(dfmod$dose2)]^2
+  } else {
+    dfmod$hed[is.na(dfmod$hed)] <- median(dfmod$hed, na.rm = TRUE)
+    dfmod$hed2[is.na(dfmod$hed2)] <- dfmod$hed[is.na(dfmod$hed2)]^2
+  }
   # Even checken of hier de eerste categorieën ook meekomen
   constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
-  modmat <- modmat[, !constcols]
+  modmat <- modmat[, !constcols, drop = FALSE]
   modmatlist <- as.list(data.frame(modmat))
   dupcols <- duplicated(modmatlist)
-  modmat <- modmat[, !dupcols]
-  these_dups <- modmatlist[dupcols]
-  modmatlist <- as.list(data.frame(modmat))
-  for(i in 1:length(these_dups)){
-    idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
-    colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
-  }
+
+    modmat <- modmat[, !dupcols, drop = FALSE]
+    these_dups <- modmatlist[dupcols]
+    modmatlist <- as.list(data.frame(modmat))
+    for(i in 1:length(these_dups)){
+      idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
+      colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
+    }
+
+  
   yi_notcentered <- df$yi[completecases]# - mlm[[p]]$mod$b[1,1]
-  res <- try(rma.mv(yi = yi_notcentered, V = df$vi[completecases], random = list(~ 1 | id_sample, ~ 1 | id_es), data = df[completecases,], intercept = TRUE, mods = modmat))
+  res <- try(rma.mv(yi = yi_notcentered, V = df$vi[completecases], random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df[completecases,], intercept = TRUE, mods = modmat))
   if(inherits(res, "try-error")){
     tabres <- NULL
   } else {
@@ -378,16 +412,16 @@ modres <- lapply(samples, function(p){
   
   moddat <- data.frame(df[completecases, c("yi", "vi")], modmat)
   cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
-  std <- moddat[, !cats]
-  std <- scale(std[, -c(1:2)])
-  cats <- moddat[, cats]
+  std <- moddat[, !cats, drop = FALSE]
+  std <- scale(std[, -c(1:2), drop = FALSE])
+  cats <- moddat[, cats, drop = FALSE]
   
   standardize <- list(
     center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
     scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
   )
   moddat <- cbind(yi = yi_notcentered, vi = df$vi[completecases], std, cats)
-  moddat$study <- df$id_sample[completecases]
+  moddat$study <- df$id_experiment[completecases]
   pma <- brma(yi ~., study = "study", data = moddat, standardize = standardize)
   saveRDS(pma, paste0("pma_", p, ".RData"))
   sumpma <- data.frame(summary(pma)$coefficients)
@@ -430,7 +464,7 @@ modres <- readRDS("modres.RData")
 Note that analyses containing VIF values greater than 5 should be regarded as problematic, due to multicolinearity.
 This applies to nearly all models.
 
-```{r run-numeric-md, include=FALSE}
+```{r run-numeric-md3, include=FALSE}
 out = NULL
 for (i in 1:length(samples)) {
   out = c(out, knit_expand('tab_rma_template.rmd'))
@@ -441,7 +475,7 @@ for (i in 1:length(samples)) {
 
 ### Bayesian regularized meta-regression:
 
-```{r run-numeric-md2, include=FALSE}
+```{r run-numeric-md4, include=FALSE}
 out = NULL
 for (i in 1:length(samples)) {
   out = c(out, knit_expand('tab_brma_template.rmd'))
@@ -456,12 +490,12 @@ for (i in 1:length(samples)) {
 <!-- predictie intervallen van elke categorie een goede manier is om de data te visualiseren en de data duidelijk over te brengen op de lezer. -->
 ```{r, eval = run_everything}
 library(ggridges)
-recat <- read.csv("rename_cats.csv", stringsAsFactors = F, header = F)
-vars <- unique(recat$V1)
+vars <- mods[sapply(dat[mods], is.factor)]
 for(p in samples){
   if(is.null(modres[[p]])) next
   if(nrow(modres[[p]]$refcat) == 0) next
   res <- readRDS(paste0("pma_", p, ".RData"))
+  
   pred <- pema:::predict.brma(res, newdata = res$X, type = "samples")
   for(v in vars[sapply(vars, function(v){any(grepl(v, colnames(res$X)))})]){
     catdf <- res$X[, startsWith(colnames(res$X), v), drop = F]
@@ -475,6 +509,7 @@ for(p in samples){
                  Group = l)
     }))
     meds <- tapply(df_plot$Value, df_plot$Group, median)
+    write.csv(meds, file = paste0("posterior_medians_", p, ".csv"), row.names = FALSE)
     postplot <- ggplot(df_plot, aes(x = Value, y = Group)) +
       geom_density_ridges(scale = 1, alpha = 0) +
       geom_segment(data = data.frame(x = meds, xend = meds, y = 1:length(meds), yend = (2:(length(meds)+1))), aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = F, colour = "skyblue3", size = 1) +
@@ -515,3 +550,690 @@ because of high multicolinearity among predictors.
 BRMA analyses were used, which are robust to multicolinearity, and perform variable selection by shrinking regression coefficients towards zero.
 These BRMA analyses revealed no consistent evidence of any significant moderator effect across samples.
 
+
+# Exploratory analyses
+
+## Conditioned fear
+
+(URB conditioned, AM404 conditioned, CBD conditioned)
+1. ‘type of outcome’ (Within-session extinction, extinction retention, fear memory reconsolidation, expression of conditioned fear, extinction recall, extinction consolidation, fear during CS re-exposure) 
+2. ‘anxiety test’ (contextual, cued conditioning) 
+3. HED en interacties HED met 1 en met 2
+4. HED2 en interacties HED2 met 1 en met 2
+
+```{r, eval = run_everything}
+
+modres <- lapply(c("CBDanimalconditioned", "AM404conditioned", "URB597conditioned"), function(p){
+  df <- dat[dat$Sample == p, ]
+  mods <- c("dose", "dose2", "hed", "hed2", "anxiety_test", "outcome")
+  df[c("dose", "dose2")] <- NULL
+  mods_cont <- c("hed")
+  df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+  df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+  # Find ref cat
+  catvars <- sapply(df, class) == "factor" & names(df) %in% mods
+  df[catvars] <- lapply(df[catvars], function(v){
+    tab <- table(v)
+    relevel(v, ref = names(tab)[which.max(tab)])
+  })
+  refcat <- data.frame(do.call(rbind,lapply(names(df[catvars]), function(n){c(n, levels(df[[n]])[1])})))
+  if(nrow(refcat) > 0) names(refcat) <- c("Variable", "Reference")
+  modmat <- model.matrix(~outcome*hed + outcome*hed2 + anxiety_test*hed+anxiety_test*hed2, df)
+  
+  # Even checken of hier de eerste categorieën ook meekomen
+  constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
+  modmat <- modmat[, !constcols, drop = FALSE]
+  modmatlist <- as.list(data.frame(modmat))
+  dupcols <- duplicated(modmatlist)
+
+    modmat <- modmat[, !dupcols, drop = FALSE]
+    these_dups <- modmatlist[dupcols]
+    modmatlist <- as.list(data.frame(modmat))
+    for(i in 1:length(these_dups)){
+      idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
+      colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
+    }
+
+  
+  yi_notcentered <- df$yi
+  res <- try(rma.mv(yi = yi_notcentered, V = df$vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df, intercept = TRUE, mods = modmat))
+  if(inherits(res, "try-error")){
+    tabres <- NULL
+  } else {
+      vifs <- vif(res)
+    confints <- confint(res)
+  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2b", "Tau2w"),
+                       Estimate = c(res$b, res$sigma2),
+                       ci.lb = c(res$ci.lb, confints[[1]]$random[1,2], confints[[2]]$random[1,2]),
+                       ci.ub = c(res$ci.ub, confints[[1]]$random[1,3], confints[[2]]$random[1,3]),
+                       p = c(res$pval, NA, NA),
+                       sig = c(c("", "*")[(res$pval < .05)+1], c("", "*")[(c(confints[[1]]$random[1,2], confints[[2]]$random[1,2])> 1e-4)+1]),
+                       VIF = c(NA, vifs$vif, NA, NA))
+  tabres$CI <- conf_int(lb = tabres$ci.lb, ub = tabres$ci.ub)
+  tabres[c("ci.lb", "ci.ub")] <- NULL
+  tabres$Sample <- p
+  tabres
+  write.csv(tabres, paste0("rma_mods_conditioned_", p, ".csv"))
+  }
+  
+  moddat <- data.frame(df[, c("yi", "vi")], modmat)
+  cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
+  std <- moddat[, !cats, drop = FALSE]
+  std <- scale(std[, -c(1:2), drop = FALSE])
+  cats <- moddat[, cats, drop = FALSE]
+  
+  standardize <- list(
+    center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
+    scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
+  )
+  moddat <- cbind(yi = yi_notcentered, vi = df$vi, std, cats)
+  moddat$study <- df$id_experiment
+  pma <- brma(yi ~., study = "study", data = moddat, standardize = standardize)
+  saveRDS(pma, paste0("pma_conditioned_", p, ".RData"))
+  sumpma <- data.frame(summary(pma)$coefficients)
+  sumpma <- cbind(rownames(sumpma), sumpma)
+  names(sumpma)[1:3] <- c("Parameter", "Estimate", "se")
+  sumpma <- sumpma[!sumpma$Parameter == "tau", ]
+  rownames(sumpma) <- NULL
+  sumpma$CI <- conf_int(lb = sumpma$X2.5., ub = sumpma$X97.5.)
+  pstars <- c("*", "")[as.integer(apply(sumpma[, c("X2.5.", 
+                                                   "X97.5.")], 1, function(x) {
+                                                     sum(sign(x)) == 0
+                                                   })) + 1]
+  sumpma$p <- pstars
+  sumpma[c("sd", grep("^X", names(sumpma), value = T))] <- NULL
+  write.csv(sumpma, paste0("brma_mods_conditioned_", p, ".csv"))
+  moddatvi <- moddat$vi
+  moddat <- moddat[, -which(colnames(moddat) == "vi")]
+  
+  list(rma = tabres,
+       brma = sumpma,
+       refcat = refcat)
+})
+names(modres) <- c("CBDanimalconditioned", "AM404conditioned", "URB597conditioned")
+saveRDS(modres, "modres_conditioned.RData")
+```
+
+### Classic meta-regression
+
+```{r}
+modres <- readRDS("modres_conditioned.RData")
+samples <- c("CBDanimalconditioned", "AM404conditioned", "URB597conditioned")
+```
+
+```{r run-numeric-md, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabref", "tabrefcond", knit_expand('tab_rma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+### Bayesian regularized meta-regression:
+
+```{r run-numeric-md2, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabbrma", "tabbrmacond", knit_expand('tab_brma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+
+## Unconditioned fear
+
+Voor ongeconditioneerde angst (URB unconditioned, AM404 unconditioned, CBD unconditioned, PF unconditioned)
+1. ‘anxiety test’ (AA, RCLB, defense, etc.) 
+2. HED en interacties HED met 1
+3. HED2 en interacties HED2  met 1
+
+```{r, eval = run_everything}
+samples <- c("CBDanimalunconditioned", "AM404unconditioned", "URB597unconditioned", "PF3845unconditioned")
+
+modres <- lapply(samples, function(p){
+  df <- dat[dat$Sample == p, ]
+  mods <- c("dose", "dose2", "hed", "hed2", "anxiety_test")
+  df[c("dose", "dose2")] <- NULL
+  mods_cont <- c("hed")
+  df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+  df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+  # Find ref cat
+  catvars <- sapply(df, class) == "factor" & names(df) %in% mods
+  df[catvars] <- lapply(df[catvars], function(v){
+    tab <- table(v)
+    relevel(v, ref = names(tab)[which.max(tab)])
+  })
+  refcat <- data.frame(do.call(rbind,lapply(names(df[catvars]), function(n){c(n, levels(df[[n]])[1])})))
+  if(nrow(refcat) > 0) names(refcat) <- c("Variable", "Reference")
+  modmat <- model.matrix(~anxiety_test*hed+anxiety_test*hed2, df)
+  
+  # Even checken of hier de eerste categorieën ook meekomen
+  constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
+  modmat <- modmat[, !constcols, drop = FALSE]
+  modmatlist <- as.list(data.frame(modmat))
+  dupcols <- duplicated(modmatlist)
+
+    modmat <- modmat[, !dupcols, drop = FALSE]
+    these_dups <- modmatlist[dupcols]
+    modmatlist <- as.list(data.frame(modmat))
+    for(i in 1:length(these_dups)){
+      idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
+      colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
+    }
+
+  
+  yi_notcentered <- df$yi
+  res <- try(rma.mv(yi = yi_notcentered, V = df$vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df, intercept = TRUE, mods = modmat))
+  if(inherits(res, "try-error")){
+    tabres <- NULL
+  } else {
+      vifs <- vif(res)
+    confints <- confint(res)
+  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2b", "Tau2w"),
+                       Estimate = c(res$b, res$sigma2),
+                       ci.lb = c(res$ci.lb, confints[[1]]$random[1,2], confints[[2]]$random[1,2]),
+                       ci.ub = c(res$ci.ub, confints[[1]]$random[1,3], confints[[2]]$random[1,3]),
+                       p = c(res$pval, NA, NA),
+                       sig = c(c("", "*")[(res$pval < .05)+1], c("", "*")[(c(confints[[1]]$random[1,2], confints[[2]]$random[1,2])> 1e-4)+1]),
+                       VIF = c(NA, vifs$vif, NA, NA))
+  tabres$CI <- conf_int(lb = tabres$ci.lb, ub = tabres$ci.ub)
+  tabres[c("ci.lb", "ci.ub")] <- NULL
+  tabres$Sample <- p
+  tabres
+  write.csv(tabres, paste0("rma_mods_unconditioned_", p, ".csv"))
+  }
+  
+  moddat <- data.frame(df[, c("yi", "vi")], modmat)
+  cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
+  std <- moddat[, !cats, drop = FALSE]
+  std <- scale(std[, -c(1:2), drop = FALSE])
+  cats <- moddat[, cats, drop = FALSE]
+  
+  standardize <- list(
+    center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
+    scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
+  )
+  moddat <- cbind(yi = yi_notcentered, vi = df$vi, std, cats)
+  moddat$study <- df$id_experiment
+  pma <- brma(yi ~., study = "study", data = moddat, standardize = standardize)
+  saveRDS(pma, paste0("pma_unconditioned_", p, ".RData"))
+  sumpma <- data.frame(summary(pma)$coefficients)
+  sumpma <- cbind(rownames(sumpma), sumpma)
+  names(sumpma)[1:3] <- c("Parameter", "Estimate", "se")
+  sumpma <- sumpma[!sumpma$Parameter == "tau", ]
+  rownames(sumpma) <- NULL
+  sumpma$CI <- conf_int(lb = sumpma$X2.5., ub = sumpma$X97.5.)
+  pstars <- c("*", "")[as.integer(apply(sumpma[, c("X2.5.", 
+                                                   "X97.5.")], 1, function(x) {
+                                                     sum(sign(x)) == 0
+                                                   })) + 1]
+  sumpma$p <- pstars
+  sumpma[c("sd", grep("^X", names(sumpma), value = T))] <- NULL
+  write.csv(sumpma, paste0("brma_mods_unconditioned_", p, ".csv"))
+  moddatvi <- moddat$vi
+  moddat <- moddat[, -which(colnames(moddat) == "vi")]
+  
+  list(rma = tabres,
+       brma = sumpma,
+       refcat = refcat)
+})
+names(modres) <- samples
+saveRDS(modres, "modres_unconditioned.RData")
+```
+
+### Classic meta-regression
+
+```{r}
+modres <- readRDS("modres_unconditioned.RData")
+samples <- c("CBDanimalunconditioned", "AM404unconditioned", "URB597unconditioned", "PF3845unconditioned")
+```
+
+```{r run-numeric-md5, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabref", "tabrefuncond", knit_expand('tab_rma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+### Bayesian regularized meta-regression:
+
+```{r run-numeric-md6, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabbrma", "tabbrmauncond", knit_expand('tab_brma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+## CBD human experimental 
+
+1. ‘anxiety test’ (Simulated public speaking test, SPECT imaging, viewing fearful faces) 
+2. Dose en interacties dose met 1
+3. Dose2 en interacties dose2 met 1 
+
+```{r, eval = run_everything}
+samples <- c("CBDhumanexperimental")
+
+modres <- lapply(samples, function(p){
+  df <- dat[dat$Sample == p, ]
+  mods <- c("dose", "dose2", "hed", "hed2", "anxiety_test")
+  df[c("hed", "hed2")] <- NULL
+  mods_cont <- c("dose")
+  df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+  df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+  # Find ref cat
+  catvars <- sapply(df, class) == "factor" & names(df) %in% mods
+  df[catvars] <- lapply(df[catvars], function(v){
+    tab <- table(v)
+    relevel(v, ref = names(tab)[which.max(tab)])
+  })
+  refcat <- data.frame(do.call(rbind,lapply(names(df[catvars]), function(n){c(n, levels(df[[n]])[1])})))
+  if(nrow(refcat) > 0) names(refcat) <- c("Variable", "Reference")
+  modmat <- model.matrix(~anxiety_test*dose+anxiety_test*dose2, df)
+  # Even checken of hier de eerste categorieën ook meekomen
+  constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
+  modmat <- modmat[, !constcols, drop = FALSE]
+  modmatlist <- as.list(data.frame(modmat))
+  dupcols <- duplicated(modmatlist)
+
+    modmat <- modmat[, !dupcols, drop = FALSE]
+    these_dups <- modmatlist[dupcols]
+    modmatlist <- as.list(data.frame(modmat))
+    for(i in 1:length(these_dups)){
+      idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
+      colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
+    }
+
+  
+  yi_notcentered <- df$yi
+  res <- try(rma.mv(yi = yi_notcentered, V = df$vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df, intercept = TRUE, mods = modmat))
+  if(inherits(res, "try-error")){
+    tabres <- NULL
+  } else {
+      vifs <- vif(res)
+    confints <- confint(res)
+  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2b", "Tau2w"),
+                       Estimate = c(res$b, res$sigma2),
+                       ci.lb = c(res$ci.lb, confints[[1]]$random[1,2], confints[[2]]$random[1,2]),
+                       ci.ub = c(res$ci.ub, confints[[1]]$random[1,3], confints[[2]]$random[1,3]),
+                       p = c(res$pval, NA, NA),
+                       sig = c(c("", "*")[(res$pval < .05)+1], c("", "*")[(c(confints[[1]]$random[1,2], confints[[2]]$random[1,2])> 1e-4)+1]),
+                       VIF = c(NA, vifs$vif, NA, NA))
+  tabres$CI <- conf_int(lb = tabres$ci.lb, ub = tabres$ci.ub)
+  tabres[c("ci.lb", "ci.ub")] <- NULL
+  tabres$Sample <- p
+  tabres
+  write.csv(tabres, paste0("rma_mods_human_", p, ".csv"))
+  }
+  
+  moddat <- data.frame(df[, c("yi", "vi")], modmat)
+  cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
+  std <- moddat[, !cats, drop = FALSE]
+  std <- scale(std[, -c(1:2), drop = FALSE])
+  cats <- moddat[, cats, drop = FALSE]
+  
+  standardize <- list(
+    center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
+    scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
+  )
+  moddat <- cbind(yi = yi_notcentered, vi = df$vi, std, cats)
+  moddat$study <- df$id_experiment
+  pma <- brma(yi ~., study = "study", data = moddat, standardize = standardize)
+  saveRDS(pma, paste0("pma_human_", p, ".RData"))
+  sumpma <- data.frame(summary(pma)$coefficients)
+  sumpma <- cbind(rownames(sumpma), sumpma)
+  names(sumpma)[1:3] <- c("Parameter", "Estimate", "se")
+  sumpma <- sumpma[!sumpma$Parameter == "tau", ]
+  rownames(sumpma) <- NULL
+  sumpma$CI <- conf_int(lb = sumpma$X2.5., ub = sumpma$X97.5.)
+  pstars <- c("*", "")[as.integer(apply(sumpma[, c("X2.5.", 
+                                                   "X97.5.")], 1, function(x) {
+                                                     sum(sign(x)) == 0
+                                                   })) + 1]
+  sumpma$p <- pstars
+  sumpma[c("sd", grep("^X", names(sumpma), value = T))] <- NULL
+  write.csv(sumpma, paste0("brma_mods_human_", p, ".csv"))
+  moddatvi <- moddat$vi
+  moddat <- moddat[, -which(colnames(moddat) == "vi")]
+  
+  list(rma = tabres,
+       brma = sumpma,
+       refcat = refcat)
+})
+names(modres) <- samples
+saveRDS(modres, "modres_human.RData")
+```
+
+### Classic meta-regression
+
+```{r}
+modres <- readRDS("modres_human.RData")
+samples <- c("CBDhumanexperimental")
+
+```
+
+```{r run-numeric-md7, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabref", "tabrefhuman", knit_expand('tab_rma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+### Bayesian regularized meta-regression:
+
+```{r run-numeric-md8, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabbrma", "tabbrmahuman", knit_expand('tab_brma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+
+# Sensitivity analyses
+
+```{r}
+dat <- readRDS("dat.RData")
+samples <- levels(dat$Sample)
+
+mods <- c("pubyear", "dose",  "dose2", "hed", "hed2", "sex", "timing", "disease", "anxiety_test","species", "outcome", "frequency")
+dat <- dat[!dat$study_id %in% c("Seillier_2013_22_6", "Seillier_2013_23_6", "Seillier_2013_24_6", "Seillier_2013_26_6", "Seillier_2013_27_6", "Seillier_2018_100_40", "Crippa_2004_16_4", "Fusar-Poli_2009_19_6", "Zuardi_1993_17_5", "Zuardi_1993_18_5", "Kathuria_2003_70_28", "Kathuria_2003_71_28", "Kathuria_2003_72_28", "Cheng_2014_13_3", "Murkar_2019_29_8", "Murkar_2019_30_8", "Cheng_2014_11_3", "Cheng_2014_12_3", "Shoval_2016_37_10", "Shoval_2016_38_10", "Shoval_2016_39_10", "Shoval_2016_40_11", "Shoval_2016_41_11", "Shoval_2016_42_11", "Shoval_2016_43_10", "Shoval_2016_44_10", "Shoval_2016_45_10", "Shoval_2016_46_11", "Shoval_2016_47_11", "Shoval_2016_48_11", "Cheng_2014_75_24", "Kajero_2020_96_34", "Silvestri_2020_194_48", "Deiana_2012_228_60", "Deiana_2012_229_60", "Moise_2008_89_36", "Moise_2008_90_36", "Moise_2008_91_36", "Simmons_2021_101_41", "Simmons_2021_102_41", "Simmons_2021_103_41", "Simmons_2021_104_41", "Simmons_2021_105_41", "Simmons_2021_106_41"), ]
+
+```
+
+
+```{r threelevsens, echo=FALSE, warning=FALSE, message=FALSE, results="hide", eval = run_everything}
+mlm <- lapply(samples, function(p){
+  df <- dat[dat$Sample == p, ]
+  #Conduct meta-analyses
+  #model.mods <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data=df) 
+  model.full <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), data=df) 
+  model.between_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(NA,0), data = df) 
+  model.within_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(0,NA), data = df) 
+model.both_null <- rma.mv(yi, vi, random = list(~ 1 | id_experiment, ~ 1 | id_es), sigma2=c(0,0), data = df) 
+
+# Compute I2
+W <- diag(1/df$vi)
+X <- model.full$X
+P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
+I2 <- 100 * model.full$sigma2 / (sum(model.full$sigma2) + (model.full$k-model.full$p)/sum(diag(P)))
+names(I2) <- c("I2_Between", "I2_Within")
+
+#model.mods <- rma.mv(yi, vi, mods = as.formula(paste0("~ ", paste(moderators, collapse = " + "))), random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df) 
+#ggplot(, aes(x=d, colour=interventioncode))+geom_density()
+#anova(model.full,rma.mv(yi, vi, mods = ~interventioncode, random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df) ) 
+aov_within <- anova(model.full,model.within_null) 
+aov_between <- anova(model.full,model.between_null) 
+aov_bothnull <- anova(model.full,model.both_null) 
+aov_table <- data.frame(rbind(
+c(aov_between$fit.stats.f[c(3:4, 1)], LRT = NA, p = NA),
+c(aov_within$fit.stats.r[c(3:4, 1)], LRT = aov_within$LRT, p = aov_within$pval),
+c(aov_between$fit.stats.r[c(3:4, 1)], LRT = aov_between$LRT, p = aov_between$pval),
+c(aov_bothnull$fit.stats.r[c(3:4, 1)], LRT = aov_bothnull$LRT, p = aov_bothnull$pval)
+))
+rownames(aov_table) <- c("Three-level model", "Within-studies variance constrained", "Between-studies variance constrained", "Both variance components constrained")
+write.csv(aov_table, paste0("threelevel_ma_sens_", p, ".csv"))
+confints <- confint(model.full)
+res = data.frame(Variance = c("Overall ES", "V between", "V within"),
+                 rbind(c(estimate = model.full$b[1,1], ci.lb = model.full$ci.lb, ci.ub = model.full$ci.ub, model.full$pval),
+                       c(confints[[1]]$random[1,], aov_table$p[3]),
+                       c(confints[[2]]$random[1,], aov_table$p[2])))
+res[nrow(res)+c(1:2), ] <- NA
+res[[1]][nrow(res)-c(0,1)] <- names(I2)
+res[[2]][nrow(res)-c(0,1)] <- I2
+  list(mod = model.full,
+    aov_table = aov_table,
+       res = res)     
+})
+names(mlm) <- samples
+saveRDS(mlm, "mlm_sens.RData")
+
+tb <- lapply(1:length(samples), function(i){
+  tb <- mlm[[i]]$res
+  tb$Sample <- samples[i]
+  tb
+})
+tb <- do.call(rbind, tb)
+tb$CI <- tidySEM::conf_int(lb = tb$ci.lb, ub = tb$ci.ub)
+tb[c("ci.lb", "ci.ub")] <- NULL
+names(tb) <- c("Parameter", "Estimate", "p", "Sample", "CI")
+write.csv(tb, "tab_threelevel_sens.csv", row.names = FALSE)
+```
+
+Separate meta-analyses were conducted for each of the samples.
+The overall pooled effect sizes were:
+
+```{r, results = "asis"}
+mlm <- readRDS("mlm_sens.RData")
+tb <- read.csv("tab_threelevel_sens.csv", stringsAsFactors = FALSE)
+# kbl(tb[, c("Parameter", "Estimate", "CI", "p", "Sample")], digits = 2) |>
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+datatable(tb, rownames= FALSE, options = list(
+              "pageLength" = nrow(tb))) |>
+  formatRound(columns=c('Estimate', 'p'), digits=2)
+```
+
+
+## Moderator analyses
+
+```{r, eval = run_everything}
+library(metacart)
+source("../correct_metacart.R")
+modres <- lapply(samples, function(p){
+  print(p)
+  df <- dat[dat$Sample == p, ]
+  if(p == "CBDanimalunconditioned"){
+    df[["administration"]] <- NULL
+  }
+  if(p == "CBDhumanexperimental"){
+    df[c("hed", "hed2")] <- NULL
+    mods_cont <- c("dose")
+  } else {
+    df[c("dose", "dose2")] <- NULL
+    mods_cont <- c("hed")
+  }
+  df[mods_cont] <- lapply(df[mods_cont], function(x)as.vector(scale(x, scale = FALSE)))
+  df[paste0(mods_cont, "2")] <- lapply(df[mods_cont], function(x)x^2)
+  constcols <- sapply(df, function(i){length(unique(i)) < 2})
+  constcolnames <- names(df)[constcols]
+  mods <- mods[!mods %in% constcolnames]
+  mods <- mods[mods %in% names(df)]
+  dfmod <- df[, mods, drop = FALSE]
+  
+  # Find ref cat
+  catvars <- sapply(dfmod, class) == "factor"
+  dfmod[catvars] <- lapply(dfmod[catvars], function(v){
+    tab <- table(v)
+    relevel(v, ref = names(tab)[which.max(tab)])
+  })
+  refcat <- data.frame(do.call(rbind,lapply(names(dfmod[catvars]), function(n){c(n, levels(dfmod[[n]])[1])})))
+  if(nrow(refcat) > 0) names(refcat) <- c("Variable", "Reference")
+  completecases <- complete.cases(dfmod)
+  modmat <- model.matrix(~., dfmod)
+  
+  if(p == "CBDhumanexperimental"){
+    dfmod$dose[is.na(dfmod$dose)] <- median(dfmod$dose, na.rm = TRUE)
+    dfmod$dose2[is.na(dfmod$dose2)] <- dfmod$dose[is.na(dfmod$dose2)]^2
+  } else {
+    dfmod$hed[is.na(dfmod$hed)] <- median(dfmod$hed, na.rm = TRUE)
+    dfmod$hed2[is.na(dfmod$hed2)] <- dfmod$hed[is.na(dfmod$hed2)]^2
+  }
+  # Even checken of hier de eerste categorieën ook meekomen
+  constcols <- colSums(modmat) == 0 | colSums(modmat) == nrow(modmat)
+  modmat <- modmat[, !constcols, drop = FALSE]
+  modmatlist <- as.list(data.frame(modmat))
+  dupcols <- duplicated(modmatlist)
+
+    modmat <- modmat[, !dupcols, drop = FALSE]
+    these_dups <- modmatlist[dupcols]
+    modmatlist <- as.list(data.frame(modmat))
+    for(i in 1:length(these_dups)){
+      idnum <- which(duplicated(c(modmatlist, these_dups[i]), fromLast = T))
+      colnames(modmat)[idnum] <- paste0(colnames(modmat)[idnum], ";", names(these_dups)[i])
+    }
+
+  
+  yi_notcentered <- df$yi[completecases]# - mlm[[p]]$mod$b[1,1]
+  res <- try(rma.mv(yi = yi_notcentered, V = df$vi[completecases], random = list(~ 1 | id_experiment, ~ 1 | id_es), data = df[completecases,], intercept = TRUE, mods = modmat))
+  if(inherits(res, "try-error")){
+    tabres <- NULL
+  } else {
+      vifs <- vif(res)
+    confints <- confint(res)
+  tabres <- data.frame(Parameter = c(rownames(res$b), "Tau2b", "Tau2w"),
+                       Estimate = c(res$b, res$sigma2),
+                       ci.lb = c(res$ci.lb, confints[[1]]$random[1,2], confints[[2]]$random[1,2]),
+                       ci.ub = c(res$ci.ub, confints[[1]]$random[1,3], confints[[2]]$random[1,3]),
+                       p = c(res$pval, NA, NA),
+                       sig = c(c("", "*")[(res$pval < .05)+1], c("", "*")[(c(confints[[1]]$random[1,2], confints[[2]]$random[1,2])> 1e-4)+1]),
+                       VIF = c(NA, vifs$vif, NA, NA))
+  tabres$CI <- conf_int(lb = tabres$ci.lb, ub = tabres$ci.ub)
+  tabres[c("ci.lb", "ci.ub")] <- NULL
+  tabres$Sample <- p
+  tabres
+  write.csv(tabres, paste0("rma_mods_sens_", p, ".csv"))
+  }
+  
+  moddat <- data.frame(df[completecases, c("yi", "vi")], modmat)
+  cats <- sapply(moddat, function(x){all(x %in% c(0, 1))})
+  std <- moddat[, !cats, drop = FALSE]
+  std <- scale(std[, -c(1:2), drop = FALSE])
+  cats <- moddat[, cats, drop = FALSE]
+  
+  standardize <- list(
+    center = c(attr(std,"scaled:center"), rep(0, ncol(cats))),
+    scale = c(attr(std,"scaled:scale"), rep(1, ncol(cats)))
+  )
+  moddat <- cbind(yi = yi_notcentered, vi = df$vi[completecases], std, cats)
+  moddat$study <- df$id_experiment[completecases]
+  pma <- brma(yi ~., study = "study", data = moddat, standardize = standardize)
+  saveRDS(pma, paste0("pma_sens_", p, ".RData"))
+  sumpma <- data.frame(summary(pma)$coefficients)
+  sumpma <- cbind(rownames(sumpma), sumpma)
+  names(sumpma)[1:3] <- c("Parameter", "Estimate", "se")
+  sumpma <- sumpma[!sumpma$Parameter == "tau", ]
+  rownames(sumpma) <- NULL
+  sumpma$CI <- conf_int(lb = sumpma$X2.5., ub = sumpma$X97.5.)
+  pstars <- c("*", "")[as.integer(apply(sumpma[, c("X2.5.", 
+                                                   "X97.5.")], 1, function(x) {
+                                                     sum(sign(x)) == 0
+                                                   })) + 1]
+  sumpma$p <- pstars
+  sumpma[c("sd", grep("^X", names(sumpma), value = T))] <- NULL
+  write.csv(sumpma, paste0("brma_mods_sens_", p, ".csv"))
+  moddatvi <- moddat$vi
+  moddat <- moddat[, -which(colnames(moddat) == "vi")]
+  set.seed(1)
+  resmc <- suppressWarnings(REmrt(reformulate(names(moddat[2:(ncol(moddat)-1)]), response = "yi"), data = moddat, vi = moddatvi, c = 0))
+  mc_tab <- data.frame(resmc$n, resmc$g, 
+                                          resmc$se, resmc$pval, conf_int(lb = resmc$ci.lb, ub = resmc$ci.ub))
+  
+  names(mc_tab) <- c("Number", "Overall ES", "se", "pval", "CI")
+  list(rma = tabres,
+       brma = sumpma,
+       mc = resmc,
+       mc_tab = mc_tab,
+       refcat = refcat)
+})
+names(modres) <- samples
+saveRDS(modres, "modres_sens.RData")
+```
+
+### Classic meta-regression
+
+```{r}
+modres <- readRDS("modres_sens.RData")
+```
+
+Note that analyses containing VIF values greater than 5 should be regarded as problematic, due to multicolinearity.
+This applies to nearly all models.
+
+```{r run-numeric-md10, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabref", "tabrefsens", knit_expand('tab_rma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+### Bayesian regularized meta-regression:
+
+```{r run-numeric-md11, include=FALSE}
+out = NULL
+for (i in 1:length(samples)) {
+  out = c(out, gsub("tabbrma", "tabbrmasens", knit_expand('tab_brma_template.rmd'), fixed = TRUE))
+}
+```
+
+`r paste(knit(text = out), collapse = '\n')`
+
+# Interaction posterior prediction plot
+
+```{r, eval = run_everything}
+library(ggridges)
+p = "CBDanimalconditioned"
+modres <- readRDS("modres.RData")
+res <- readRDS(paste0("pma_", p, ".RData"))
+
+pred <- pema:::predict.brma(res, newdata = res$X, type = "samples")
+
+# administration species
+v = "outcome"
+m = "species"
+catdf <- res$X[, startsWith(colnames(res$X), v), drop = F]
+catdf2 <- res$X[, startsWith(colnames(res$X), m), drop = F]
+
+splt <- apply(catdf, 1, which.max) + 1
+splt2 <- apply(catdf2, 1, which.max) + 1
+
+splt[rowSums(catdf == 0) == ncol(catdf)] <- 1
+splt2[rowSums(catdf2 == 0) == ncol(catdf2)] <- 1
+
+labs <- c(modres[[p]]$refcat$Reference[modres[[p]]$refcat$Variable == v],
+              unique(gsub(".", "", gsub(v, "", grep(paste0("^", v), colnames(res$X), value = T)), fixed = TRUE)))
+labs2 <- c(modres[[p]]$refcat$Reference[modres[[p]]$refcat$Variable == m],
+              unique(gsub(".", "", gsub(m, "", grep(paste0("^", m), colnames(res$X), value = T)), fixed = TRUE)))
+splt <- droplevels(factor(splt, labels = labs))
+splt2 <- droplevels(factor(splt2, labels = labs2))
+out <- list()
+for(l in levels(splt)){
+  for(l2 in levels(splt2)){
+    if(!any(splt == l & splt2 == l2)) next
+    addthis <- data.frame(Value = as.vector(pred[splt == l & splt2 == l2, ]),
+                             l,
+                             l2)
+    names(addthis)[2:3] <- c(v, m)
+    out <- append(out, list(addthis))
+  }
+}
+df_plot <- do.call(rbind, out)
+
+    #meds <- tapply(df_plot$Value, df_plot$Group, median)
+meds <- expand.grid(levels(splt), levels(splt2))
+meds <- cbind(meds, value = apply(meds, 1, function(i){
+  median(as.vector(pred[splt == i[1] & splt2 == i[2], ]))
+}))
+names(meds) <- c(v, m, "Value")
+# meds[c("x", "xend")] <- meds$Value
+# meds$y <- meds$outcome
+# meds$yend <- meds$outcome
+    postplot <- ggplot(df_plot, aes_string(x = "Value", y = v, colour = m, fill = m)) +
+      geom_density_ridges(scale = 1, alpha = .2)+
+      theme_bw() +
+      scale_y_discrete(expand =c(0,0))+
+      labs(title = p,
+           x = paste0("Posterior predicted effect size"),
+           y = v)
+    ggsave(filename = paste0("int_plot_", v, "_", p, ".png"), plot = postplot, device = "png")
+
+postplot
+```

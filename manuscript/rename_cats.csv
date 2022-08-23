@@ -7,6 +7,9 @@ drug,URB597,URB597
 drug_class,AEA hydrolysis inhibitor,AEA_in
 drug_class,Reuptake inhibitor,reup_in
 drug_class,Reuptake/hydrolysis inhibitor,rehy_in
+drug_class,AEA_in,AEA_in
+drug_class,reup_in,reup_in
+drug_class,rehy_in,rehy_in
 unit,mg,mg
 unit,mg/kg,mg/kg
 frequency,MD,MD
@@ -18,6 +21,26 @@ anxiety_test,Cued fear conditioning,cued
 anxiety_test,Simulated public speaking test,speaking
 anxiety_test,SPECT imaging (subjective assessments taken beforehand),SPECT
 anxiety_test,Viewing fearful faces with different intensity of fearfulness,faces
+anxiety_test,contextual,contextual
+anxiety_test,cued,cued
+anxiety_test,speaking,speaking
+anxiety_test,SPECT,SPECT
+anxiety_test,faces,faces
+outcome_type,fear_exp,fear_exp
+outcome_type,fear_reex,fear_reex
+outcome_type,ret_safety,ret_safety
+outcome_type,ex_cons,ex_cons
+outcome_type,ex_recall,ex_recall
+outcome_type,ex_ret,ex_ret
+outcome_type,mem_ret,mem_ret
+outcome_type,mem_recon,mem_recon
+outcome_type,mem_recon_ex,mem_recon_ex
+outcome_type,within_ex,within_ex
+outcome_type,within_ex_con,within_ex_con
+outcome_type,within_ex_ret,within_ex_ret
+outcome_type,Conditioned fear expression,fear_exp
+outcome_type,Fear during CS reexposure,fear_reex
+outcome_type,Retention of safety learning,ret_safety
 outcome_type,Extinction consolidation,ex_cons
 outcome_type,Extinction recall,ex_recall
 outcome_type,Extinction retention,ex_ret
@@ -32,6 +55,7 @@ test_type,Experimental,Experimental
 test_type,Unconditioned,Unconditioned
 species,Cricetidae,Cricetidae
 species,human,human
+species,monkeys,monkeys
 species,mice,mice
 species,rats,rats
 disease,No,No
